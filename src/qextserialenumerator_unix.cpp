@@ -3,6 +3,7 @@
 #include <QMetaType>
 #include <QStringList>
 #include <QDir>
+#include <QFileInfo>
 #include <QProcess>
 
 QextSerialEnumerator::QextSerialEnumerator( )
@@ -73,109 +74,59 @@ QList<QextPortInfo> QextSerialEnumerator::getPorts()
         {
             inf.friendName = "Serial port "+portname.remove(0, 4);
         }
-        else if( portname.startsWith("ttyUSB") )
+        else if( portname.startsWith("ttyUSB") || portname.startsWith("ttyACM") )
         {
-            // set fallbackup name
-            inf.friendName = QString("USB-Serial adapter %1").arg(portname.mid(6));
+            QFileInfo deviceLink("/sys/class/tty/"+portname);
+            QString devicePath;
 
-            // now try to get more info about the adapter
-            QFile uevent("/sys/class/tty/"+portname+"/device/uevent");
-            if( uevent.open(QFile::ReadOnly) )
+            if( deviceLink.isSymLink() )
+                devicePath = deviceLink.symLinkTarget();
+            else
+                devicePath = deviceLink.canonicalPath();
+
+            // looking for product information
+            QDir productDir(devicePath);
+            while( productDir.cdUp() )
             {
-                QString driverName;
-                forever
+                if( productDir.entryList(QStringList("product"), QDir::Files).isEmpty() )
+                    continue;
+
+                // friend name information
+                QFile productFile(productDir.absolutePath()+"/product");
+                if( productFile.open(QIODevice::ReadOnly | QIODevice::Text) )
                 {
-                    QString line = uevent.readLine();
-                    if( line.isEmpty() )
-                        break;
-
-                    if( line.startsWith("DRIVER=") )
-                    {
-                        driverName = line.mid(7).simplified(); // cut the "DRIVER=" part
-                        break;
-                    }
+                    inf.friendName = productFile.readLine().simplified()
+                                   + " "+portname.mid(6); // append device link id
                 }
-                uevent.close();
 
-                QDir driverDir("/sys/bus/usb/drivers/"+driverName);
-                driverDir.setNameFilters(QStringList("*:*"));
-                foreach(QString subDir, driverDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+                // vendor id
+                QFile vidFile(productDir.absolutePath()+"/idVendor");
+                if( vidFile.open(QIODevice::ReadOnly | QIODevice::Text) )
                 {
-                    QString driverSubDir = driverDir.path()+"/"+subDir;
-                    if( !QFile::exists(driverSubDir+'/'+portname) )
-                        continue;
-
-                    QFile vidPidFile(driverSubDir+"/uevent");
-                    if( vidPidFile.open(QFile::ReadOnly) )
-                    {
-                        forever
-                        {
-                            QString line = vidPidFile.readLine();
-                            if( line.isEmpty() )
-                                break;
-
-                            if( line.startsWith("PRODUCT=") )
-                            {
-                                line = line.mid(8); // cut the "PRODUCT=" part
-
-                                QString vid = line.section('/',0,0);
-                                bool ok;
-                                inf.vendorID = vid.toInt(&ok, 16);
-
-                                QString pid = line.section('/', 1,1);
-                                inf.productID = pid.toInt(&ok, 16);
-
-                                break;
-                            }
-                        }
-                        vidPidFile.close();
-                    }
-
-                    QFile interfaces(driverSubDir+"/interface");
-                    if( !interfaces.open(QFile::ReadOnly) )
-                        continue;
-
-                    QString name = interfaces.readLine().simplified();
-                    if( !name.isEmpty() )
-                        inf.friendName = name;
+                    inf.vendorID = vidFile.readLine().simplified().toInt(0, 16);
                 }
+
+                // product id
+                QFile pidFile(productDir.absolutePath()+"/idProduct");
+                if( pidFile.open(QIODevice::ReadOnly | QIODevice::Text) )
+                {
+                    inf.productID = pidFile.readLine().simplified().toInt(0, 16);
+                }
+
+                break;
+            }
+
+            if( inf.friendName.isEmpty() )
+            {
+                qWarning("Failed to get device info for %s", portname.toStdString().c_str());
+
+                if( portname.startsWith("ttyUSB") )
+                    inf.friendName = "USB-Serial adapter "+portname.mid(6);
+                else // ttyACM
+                    inf.friendName = "Serial-over-USB adapter "+portname.mid(6);
             }
         }
-        else if( portname.startsWith("ttyACM") )
-        {
-            // set fallbackup name
-            inf.friendName = QString("USB CDC ACM adapter %1").arg(portname.mid(6));
-
-            // now try to get more info about the adapter
-            QFile uevent("/sys/class/tty/"+portname+"/device/uevent");
-            if( uevent.open(QFile::ReadOnly) )
-            {
-                QString driverName;
-                forever
-                {
-                    QString line = uevent.readLine();
-                    if( line.isEmpty() )
-                        break;
-
-                    if( line.startsWith("DRIVER=") )
-                        driverName = line.mid(7).simplified(); // cut the "DRIVER=" part
-
-                    if( line.startsWith("PRODUCT=") )
-                    {
-                        line = line.mid(8); // cut the "PRODUCT=" part
-
-                        QString vid = line.section('/',0,0);
-                        bool ok;
-                        inf.vendorID = vid.toInt(&ok, 16);
-
-                        QString pid = line.section('/', 1,1);
-                        inf.productID = pid.toInt(&ok, 16);
-                    }
-                }
-                uevent.close();
-            }
-        }
-        else if( portname.startsWith("rfcomm") )
+        else if( portname.startsWith("rfcomm") ) // TODO check if the same as with ttyUSB/ACM is possible
         {
             // set fallbackup name
             inf.friendName = QString("Bluetooth-serial adapter %1").arg(portname.mid(6));

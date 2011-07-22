@@ -40,8 +40,8 @@ CONFIG(debug, debug|release) {
 
 
 # Installation
-libs.files              = build/*.so* \
-                          build/*.dylib # For Mac OS X.
+libs.files              = ./build/*.so* \
+                          ./build/*.dylib # For Mac OS X.
 headers.files           = *.h
 unix:!macx:libs.path    = /usr/local/lib
 unix:!macx:headers.path = /usr/local/include

@@ -76,6 +76,7 @@ enum BaudRateType
     BAUD230400,
     BAUD256000,            //WINDOWS ONLY
     BAUD460800,
+    BAUD576000,
     BAUD921600
 };
 

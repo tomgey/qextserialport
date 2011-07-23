@@ -713,6 +713,11 @@ void QextSerialPort::setBaudRate(BaudRateType baudRate) {
                 Win_CommConfig.dcb.BaudRate=460800;
                 break;
 
+            /*576000 baud*/
+            case BAUD576000:
+                Win_CommConfig.dcb.BaudRate=576000;
+                break;
+
             /*921600 baud*/
             case BAUD921600:
                 Win_CommConfig.dcb.BaudRate=921600;

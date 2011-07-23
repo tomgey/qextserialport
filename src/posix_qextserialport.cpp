@@ -56,6 +56,7 @@ BAUD1800.
    BAUD230400          230400      230400
    BAUD256000          256000      115200
    BAUD460800          460800      460800
+   BAUD576000          576000      576000
    BAUD921600          921600      921600
 \endverbatim
 */
@@ -95,6 +96,14 @@ void QextSerialPort::setBaudRate(BaudRateType baudRate)
                 Settings.BaudRate=BAUD115200;
 #endif
                 break;
+
+            case BAUD576000:
+#ifdef B576000
+            Settings.BaudRate=baudRate;
+#else
+            Settings.BaudRate=BAUD115200;
+#endif
+            break;
 
             case BAUD921600:
 #ifdef B921600
@@ -425,6 +434,29 @@ void QextSerialPort::setBaudRate(BaudRateType baudRate)
                 cfsetispeed(&Posix_CommConfig, B115200);
                 cfsetospeed(&Posix_CommConfig, B115200);
 #endif //B460800
+#endif //CBAUD
+                break;
+
+            /*576000 baud*/
+            case BAUD576000:
+#ifdef CBAUD
+                Posix_CommConfig.c_cflag&=(~CBAUD);
+
+#ifdef B576000
+                Posix_CommConfig.c_cflag|=B576000;
+#else
+                TTY_WARNING("QextSerialPort: QextSerialPort was compiled without 576000 baud support.  Switching to 115200 baud.");
+                Posix_CommConfig.c_cflag|=B115200;
+#endif //B576000
+#else  //CBAUD
+#ifdef B576000
+                cfsetispeed(&Posix_CommConfig, B576000);
+                cfsetospeed(&Posix_CommConfig, B576000);
+#else
+                TTY_WARNING("QextSerialPort: QextSerialPort was compiled without 576000 baud support.  Switching to 115200 baud.");
+                cfsetispeed(&Posix_CommConfig, B115200);
+                cfsetospeed(&Posix_CommConfig, B115200);
+#endif //B576000
 #endif //CBAUD
                 break;
 

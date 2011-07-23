@@ -26,7 +26,7 @@ QList<QextPortInfo> QextSerialEnumerator::getPorts()
     // get the non standard serial ports names first
     // (USB-serial, bluetooth-serial, 18F PICs, and so on)
     // if you know an other name prefix for serial ports please let us know
-    portNamePrefixes << "ttyACM*" << "ttyUSB*" << "rfcomm*";
+    portNamePrefixes << "ttyACM*" << "ttyUSB*" << "rfcomm*" << "ttySMX*";
     portNameList = dir.entryList(portNamePrefixes, (QDir::System | QDir::Files), QDir::Name);
 
     // now get the standard serial ports
@@ -70,9 +70,13 @@ QList<QextPortInfo> QextSerialEnumerator::getPorts()
         inf.vendorID = 0;
         inf.productID = 0;
 
-        if( portname.startsWith("ttyS") )
+        if( portname.startsWith("ttySMX") )
         {
-            inf.friendName = "Serial port "+portname.remove(0, 4);
+            inf.friendName = "i.MX processor internal port "+portname.mid(6);
+        }
+        else if( portname.startsWith("ttyS") )
+        {
+            inf.friendName = "Serial port "+portname.mid(4);
         }
         else if( portname.startsWith("ttyUSB") || portname.startsWith("ttyACM") )
         {

@@ -111,8 +111,10 @@ void QextSerialPort::close()
         CancelIo(Win_Handle);
         if (CloseHandle(Win_Handle))
             Win_Handle = INVALID_HANDLE_VALUE;
-        if (winEventNotifier)
+        if (winEventNotifier) {
+            winEventNotifier->setEnabled( false );
             winEventNotifier->deleteLater();
+        }
 
         _bytesToWrite = 0;
 
